@@ -1,0 +1,32 @@
+{
+  "name": "shopmart-backend",
+  "version": "1.0.0",
+  "description": "Shopmart e-commerce REST API (Express 5, MongoDB, JWT, Razorpay)",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/server.js",
+    "start": "node src/server.js",
+    "seed": "node --env-file=.env src/scripts/seed.js",
+    "seed:destroy": "node --env-file=.env src/scripts/seed.js --destroy",
+    "images": "node --env-file=.env src/scripts/updateImages.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.0",
+    "morgan": "^1.10.0",
+    "nodemailer": "^10.3.1",
+    "razorpay": "^2.9.5",
+    "zod": "^3.24.0"
+  }
+}
