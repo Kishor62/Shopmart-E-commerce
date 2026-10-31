@@ -10,12 +10,10 @@ const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
   const dispatch = useDispatch();
 
-  // Wishlist page redux se padhta hai (s.wishlist.items), isliye yahan bhi redux use karein
   const inWishlist = useSelector((s) =>
     s.wishlist.items.some((i) => i.id === product.id),
   );
 
-  // API "title" deti hai, "name" nahi. Isi wajah se pehle naam nahi dikh raha tha.
   const name = product.title ?? product.name;
   const rate = product.rating?.rate;
   const count = product.rating?.count;
@@ -35,11 +33,11 @@ const ProductCard = ({ product }) => {
 
   return (
     <article className="flex flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_1px_2px_rgba(15,23,42,.06),0_8px_24px_rgba(15,23,42,.06)] transition-shadow hover:shadow-lg lg:rounded-[22px]">
-      {/* Image: object-contain, taaki product kate nahi */}
+      {/* Image */}
       <div className="relative h-[150px] bg-[#EEF1F8] lg:h-[210px]">
         <Link to={`/product/${product.id}`} className="block h-full w-full p-4">
           <img
-            src={product.image}
+            src={product.image || product.thumbnail}
             alt={name}
             loading="lazy"
             className="h-full w-full object-contain mix-blend-multiply"
@@ -90,8 +88,9 @@ const ProductCard = ({ product }) => {
           </div>
         )}
 
-        <div className="mt-1 flex items-end justify-between gap-2">
-          <div className="flex flex-col lg:flex-row lg:items-baseline lg:gap-2">
+        {/* Price upar + Button neeche */}
+        <div className="mt-2 flex flex-col gap-3">
+          <div className="flex items-baseline gap-2">
             <span className="text-[19px] font-extrabold tracking-tight text-slate-900 lg:text-[22px]">
               {inr(product.price)}
             </span>
@@ -102,18 +101,14 @@ const ProductCard = ({ product }) => {
             )}
           </div>
 
-          {/* Mobile: round "+" | Laptop: "Add to cart" */}
           <button
             type="button"
-            // Cart.jsx item.name padhta hai, isliye name set karke bhejte hain
             onClick={() => addToCart({ ...product, name })}
             aria-label={`Add ${name} to cart`}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white transition hover:bg-blue-700 active:scale-95 lg:w-auto lg:px-4"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 active:scale-[0.98]"
           >
-            <Plus size={20} strokeWidth={2.4} className="lg:hidden" />
-            <span className="hidden text-sm font-bold lg:inline">
-              Add to cart
-            </span>
+            <Plus size={18} strokeWidth={2.4} />
+            Add to cart
           </button>
         </div>
       </div>

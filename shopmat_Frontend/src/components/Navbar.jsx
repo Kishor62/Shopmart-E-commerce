@@ -9,27 +9,29 @@ import {
   ShoppingCart,
   Heart,
   User,
-  Menu,
-  X,
   ChevronDown,
   LogOut,
-  Home,
   Package,
-  Phone,
-  Info,
   Settings,
   LayoutGrid,
+  Truck,
 } from "lucide-react";
 
+// Backend ke categories (slug) ke hisaab se
 const categories = [
-  { name: "All Categories", path: "/products" },
+  { name: "All Products", path: "/products" },
+  { name: "Mobiles", path: "/products?category=mobiles" },
+  { name: "Fashion", path: "/products?category=fashion" },
   { name: "Electronics", path: "/products?category=electronics" },
-  { name: "Men's Clothing", path: "/products?category=men%27s clothing" },
-  { name: "Women's Clothing", path: "/products?category=women%27s clothing" },
-  { name: "Jewelery", path: "/products?category=jewelery" },
+  { name: "Appliances", path: "/products?category=appliances" },
+  { name: "Smart Gadgets", path: "/products?category=smart-gadgets" },
+  { name: "Home", path: "/products?category=home" },
+  { name: "Beauty", path: "/products?category=beauty" },
+  { name: "Grocery", path: "/products?category=grocery" },
 ];
 
 const desktopLinks = [
+  { to: "/", label: "Home", end: true },
   { to: "/products", label: "Products" },
   { to: "/categories", label: "Categories" },
   { to: "/about", label: "About" },
@@ -80,9 +82,28 @@ function SearchBox({ search, setSearch, onSubmit, className = "" }) {
   );
 }
 
+// Hover (mouse) + focus (keyboard) dono par khulne wala dropdown
+function Dropdown({ trigger, children, align = "left" }) {
+  return (
+    <div className="group relative">
+      {trigger}
+      <div
+        className={`invisible absolute top-full z-50 pt-2 opacity-0 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 ${
+          align === "right" ? "right-0" : "left-0"
+        }`}
+      >
+        <div className="min-w-[210px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const menuItem =
+  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700";
+
 function Navbar() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const { totalItems = 0 } = useCart();
@@ -95,67 +116,35 @@ function Navbar() {
     if (search.trim()) {
       navigate(`/products?search=${encodeURIComponent(search.trim())}`);
       setSearch("");
-      setMenuOpen(false);
     }
-  };
-
-  const closeMobileMenu = () => {
-    setMenuOpen(false);
-    setCategoryOpen(false);
   };
 
   const handleLogout = () => {
     logout();
-    closeMobileMenu();
     navigate("/");
   };
 
-  const navLinkClass = ({ isActive }) =>
-    `flex items-center gap-2 rounded-xl px-4 py-3 font-semibold transition ${
-      isActive
-        ? "bg-blue-50 text-blue-700"
-        : "text-slate-700 hover:bg-slate-50 hover:text-blue-700"
+  const linkClass = ({ isActive }) =>
+    `rounded-lg px-3 py-2 text-[15px] font-semibold transition ${
+      isActive ? "text-blue-700" : "text-slate-600 hover:text-slate-900"
     }`;
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
-      {/* Main bar – everything in ONE row on md+ */}
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6 lg:gap-6 lg:px-8 lg:py-4">
-        {/* Logo */}
+      {/* ROW 1: Logo | Search | Wishlist, Cart, Account */}
+      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6 lg:gap-8 lg:px-8 lg:py-4">
         <div className="shrink-0">
           <Logo showTagline />
         </div>
 
-        {/* Desktop nav links */}
-        <nav
-          aria-label="Primary"
-          className="hidden items-center gap-5 text-[15px] font-semibold xl:flex"
-        >
-          {desktopLinks.map((l) => (
-            <NavLink
-              key={l.label}
-              to={l.to}
-              end={l.end}
-              className={({ isActive }) =>
-                isActive
-                  ? "text-blue-700"
-                  : "text-slate-600 transition hover:text-slate-900"
-              }
-            >
-              {l.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Search – takes remaining space, stays in middle */}
+        {/* Desktop search: beech mein, bachi hui jagah leta hai */}
         <SearchBox
           search={search}
           setSearch={setSearch}
           onSubmit={handleSearch}
-          className="hidden min-w-0 flex-1 md:flex"
+          className="hidden min-w-0 flex-1 md:flex lg:mx-auto lg:max-w-2xl"
         />
 
-        {/* RIGHT SIDE – Wishlist, Cart, Login (never wraps) */}
         <div className="ml-auto flex shrink-0 items-center gap-2 lg:gap-3">
           <IconLink to="/wishlist" label="Wishlist" count={wishCount}>
             <Heart size={22} />
@@ -169,47 +158,86 @@ function Navbar() {
             <ShoppingCart size={22} />
           </IconLink>
 
-          {/* Account / Login */}
           {user ? (
-            <div className="hidden items-center gap-1.5 md:flex">
-              <Link
-                to="/profile"
-                className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-900 transition hover:bg-slate-50 lg:h-12"
+            <div className="hidden md:block">
+              <Dropdown
+                align="right"
+                trigger={
+                  <button className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-900 transition hover:bg-slate-50 lg:h-12">
+                    <User size={20} />
+                    <span className="max-w-[110px] truncate text-sm font-semibold">
+                      {user.fullName || user.name}
+                    </span>
+                    <ChevronDown size={16} />
+                  </button>
+                }
               >
-                <User size={20} />
-                <span className="max-w-[100px] truncate text-sm font-semibold">
-                  {user.fullName || user.name}
-                </span>
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="h-11 rounded-xl px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 lg:h-12"
-              >
-                Logout
-              </button>
+                <Link to="/profile" className={menuItem}>
+                  <User size={16} /> My Profile
+                </Link>
+                <Link to="/orders" className={menuItem}>
+                  <Package size={16} /> My Orders
+                </Link>
+                <Link to="/wishlist" className={menuItem}>
+                  <Heart size={16} /> Wishlist
+                </Link>
+                <Link to="/settings" className={menuItem}>
+                  <Settings size={16} /> Settings
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className={`${menuItem} text-red-600 hover:bg-red-50 hover:text-red-700`}
+                >
+                  <LogOut size={16} /> Logout
+                </button>
+              </Dropdown>
             </div>
           ) : (
             <Link
               to="/login"
-              className="hidden h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 md:flex lg:h-12"
+              className="flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-3 text-sm font-bold text-white transition hover:bg-blue-700 sm:px-4 lg:h-12"
             >
-              <User size={18} /> Login
+              <User size={18} />
+              <span className="hidden sm:inline">Login</span>
             </Link>
           )}
-
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            className="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-900 transition hover:bg-slate-50 md:hidden"
-          >
-            {menuOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
         </div>
       </div>
 
-      {/* Mobile search only – full width below main bar */}
+      {/* ROW 2 (desktop only): links + categories dropdown */}
+      <div className="hidden border-t border-slate-100 md:block">
+        <nav
+          aria-label="Primary"
+          className="mx-auto flex max-w-7xl items-center gap-1 px-4 sm:px-6 lg:px-8"
+        >
+          <Dropdown
+            trigger={
+              <button className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-[15px] font-bold text-blue-700">
+                <LayoutGrid size={18} /> Shop by Category{" "}
+                <ChevronDown size={16} />
+              </button>
+            }
+          >
+            {categories.map((c) => (
+              <Link key={c.name} to={c.path} className={menuItem}>
+                {c.name}
+              </Link>
+            ))}
+          </Dropdown>
+
+          {desktopLinks.map((l) => (
+            <NavLink key={l.label} to={l.to} end={l.end} className={linkClass}>
+              {l.label}
+            </NavLink>
+          ))}
+
+          <span className="ml-auto hidden items-center gap-2 text-sm font-semibold text-emerald-700 lg:flex">
+            <Truck size={18} /> Free delivery above ₹499
+          </span>
+        </nav>
+      </div>
+
+      {/* Mobile search: poori width, main bar ke neeche */}
       <div className="border-t border-slate-100 px-4 py-3 md:hidden">
         <SearchBox
           search={search}
@@ -218,144 +246,6 @@ function Navbar() {
           className="w-full"
         />
       </div>
-
-      {/* Mobile Menu */}
-      {menuOpen && (
-        <div className="max-h-[70vh] overflow-y-auto border-t border-slate-200 bg-white px-4 py-4 shadow-lg md:hidden">
-          <nav className="flex flex-col gap-1">
-            <NavLink
-              to="/"
-              end
-              onClick={closeMobileMenu}
-              className={navLinkClass}
-            >
-              <Home size={18} /> Home
-            </NavLink>
-
-            <NavLink
-              to="/products"
-              onClick={closeMobileMenu}
-              className={navLinkClass}
-            >
-              <Package size={18} /> Products
-            </NavLink>
-
-            <button
-              onClick={() => setCategoryOpen(!categoryOpen)}
-              aria-expanded={categoryOpen}
-              className="flex items-center justify-between rounded-xl px-4 py-3 text-left font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-blue-700"
-            >
-              <span className="flex items-center gap-2">
-                <LayoutGrid size={18} /> Categories
-              </span>
-              <ChevronDown
-                size={18}
-                className={`transition-transform ${categoryOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-
-            {categoryOpen && (
-              <div className="ml-4 space-y-1 rounded-xl bg-slate-50 p-2">
-                {categories.map((category) => (
-                  <Link
-                    key={category.name}
-                    to={category.path}
-                    onClick={closeMobileMenu}
-                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-blue-100 hover:text-blue-700"
-                  >
-                    {category.name}
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            <NavLink
-              to="/wishlist"
-              onClick={closeMobileMenu}
-              className={navLinkClass}
-            >
-              <Heart size={18} /> Wishlist
-              {wishCount > 0 && (
-                <span className="ml-auto rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
-                  {wishCount}
-                </span>
-              )}
-            </NavLink>
-
-            <NavLink
-              to="/cart"
-              onClick={closeMobileMenu}
-              className={navLinkClass}
-            >
-              <ShoppingCart size={18} /> Cart
-              {totalItems > 0 && (
-                <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
-                  {totalItems}
-                </span>
-              )}
-            </NavLink>
-
-            {user ? (
-              <>
-                <NavLink
-                  to="/profile"
-                  onClick={closeMobileMenu}
-                  className={navLinkClass}
-                >
-                  <User size={18} /> {user.fullName || user.name}
-                </NavLink>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 rounded-xl px-4 py-3 text-left font-semibold text-red-600 transition hover:bg-red-50"
-                >
-                  <LogOut size={18} /> Logout
-                </button>
-              </>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 py-3">
-                <Link
-                  to="/login"
-                  onClick={closeMobileMenu}
-                  className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-bold text-white transition hover:bg-blue-700"
-                >
-                  <User size={18} /> Login
-                </Link>
-                <Link
-                  to="/signup"
-                  onClick={closeMobileMenu}
-                  className="flex h-12 items-center justify-center rounded-2xl border border-slate-200 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
-                >
-                  Sign up
-                </Link>
-              </div>
-            )}
-
-            <NavLink
-              to="/contact"
-              onClick={closeMobileMenu}
-              className={navLinkClass}
-            >
-              <Phone size={18} /> Contact
-            </NavLink>
-
-            <NavLink
-              to="/about"
-              onClick={closeMobileMenu}
-              className={navLinkClass}
-            >
-              <Info size={18} /> About
-            </NavLink>
-
-            <NavLink
-              to="/settings"
-              onClick={closeMobileMenu}
-              className={navLinkClass}
-            >
-              <Settings size={18} /> Settings
-            </NavLink>
-          </nav>
-        </div>
-      )}
     </header>
   );
 }

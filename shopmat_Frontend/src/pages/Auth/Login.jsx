@@ -1,13 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  Mail,
-  LockKeyhole,
-  Eye,
-  EyeOff,
-  LogIn,
-} from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Mail, LockKeyhole, Eye, EyeOff, LogIn } from "lucide-react";
+import { useAuth, getErrorMessage } from "../../context/AuthContext";
 import { useDispatch } from "react-redux";
 import { showNotification } from "../../redux/slices/notificationSlice";
 
@@ -18,10 +12,15 @@ export default function Login() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ProtectedRoute se aaye the to login ke baad wahin wapas (warna home)
+  const redirectTo = location.state?.from?.pathname || "/";
 
   const updateField = (e) => {
     setForm({
@@ -30,33 +29,36 @@ export default function Login() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
 
+    setLoading(true);
     try {
-      login(form);
+      await login(form.email.trim(), form.password);
 
       dispatch(
         showNotification({
           message: "Logged in successfully!",
           type: "success",
-        })
+        }),
       );
 
-      navigate("/dashboard");
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       dispatch(
         showNotification({
-          message: error.message,
+          message: getErrorMessage(error, "Login failed"),
           type: "error",
-        })
+        }),
       );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-[calc(100vh-80px)] flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-50 via-violet-50/30 to-indigo-50 px-4 py-12">
-      
       {/* Decorative background blobs */}
       <div className="absolute top-20 left-10 w-72 h-72 bg-violet-200/40 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-80 h-80 bg-indigo-200/40 rounded-full blur-3xl pointer-events-none" />
@@ -64,7 +66,6 @@ export default function Login() {
       <div className="relative w-full max-w-[420px]">
         {/* Card */}
         <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-100/50 border border-white/60 p-8 sm:p-10">
-          
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white mb-4 shadow-lg shadow-violet-200">
@@ -135,9 +136,10 @@ export default function Login() {
 
             <button
               type="submit"
-              className="w-full mt-1 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3.5 font-semibold text-white shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+              disabled={loading}
+              className="w-full mt-1 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3.5 font-semibold text-white shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
           </form>
 

@@ -1,79 +1,128 @@
-
-const BASE_URL = "https://fakestoreapi.com";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 // Common API request handler
 const apiRequest = async (endpoint, options = {}) => {
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...options.headers,
-    },
-  });
+  let response;
+  try {
+    response = await fetch(`${BASE_URL}${endpoint}`, {
+      credentials: "include",
+      ...options,
+      headers: {
+        Accept: "application/json",
+        ...options.headers,
+      },
+    });
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
+    throw new Error("Server se connect nahi ho paya. Backend chal raha hai?");
+  }
 
   if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
     throw new Error(
-      `API Error: ${response.status} ${response.statusText}`
+      body.message || `API Error: ${response.status} ${response.statusText}`,
     );
   }
 
   return response.json();
 };
 
-// Get all products
+// Backend product -> purane (FakeStore jaisa) shape, taaki purane pages na tutein
+//   price  = discount ke baad ki price (rupees, ab ×83 NAHI karna)
+//   mrp    = original price
+//   image  = thumbnail
+//   rating = { rate, count }
+const normalize = (p) => ({
+  ...p,
+  mrp: p.price,
+  price: p.finalPrice ?? p.price,
+  image: p.thumbnail,
+  rating: { rate: p.rating ?? 0, count: p.ratingCount ?? 0 },
+});
+
+// Get all products (saare pages jod kar ek array)
 export const getAllProducts = async (signal) => {
-  return apiRequest("/products", { signal });
+  const limit = 100;
+  const first = await apiRequest(`/products?limit=${limit}&page=1`, { signal });
+  let products = first.products;
+
+  for (let page = 2; page <= (first.pages || 1); page++) {
+    const next = await apiRequest(`/products?limit=${limit}&page=${page}`, {
+      signal,
+    });
+    products = products.concat(next.products);
+  }
+  return products.map(normalize);
 };
 
 // Get single product by ID
 export const getProductById = async (id, signal) => {
   if (!id) throw new Error("Product ID is required");
 
-  return apiRequest(`/products/${encodeURIComponent(id)}`, {
+  const data = await apiRequest(`/products/${encodeURIComponent(id)}`, {
     signal,
   });
+  return normalize(data.product);
 };
 
-// Get all categories
+// Get product + related products
+export const getProductWithRelated = async (id, signal) => {
+  if (!id) throw new Error("Product ID is required");
+
+  const data = await apiRequest(`/products/${encodeURIComponent(id)}`, {
+    signal,
+  });
+  return {
+    product: normalize(data.product),
+    related: (data.related || []).map(normalize),
+  };
+};
+
+// Get all categories -> ["mobiles", "fashion", ...]  (slug strings, purane jaisa)
 export const getAllCategories = async (signal) => {
+  const cats = await apiRequest("/products/categories", { signal });
+  return cats.map((c) => c.slug);
+};
+
+// Categories with name + icon -> [{ name, slug, icon }]
+export const getCategoryList = async (signal) => {
   return apiRequest("/products/categories", { signal });
 };
 
-// Get products by category
+// Get products by category (slug)
 export const getProductsByCategory = async (category, signal) => {
   if (!category) {
     throw new Error("Category is required");
   }
 
-  return apiRequest(
-    `/products/category/${encodeURIComponent(category)}`,
-    { signal }
+  const data = await apiRequest(
+    `/products/category/${encodeURIComponent(category)}?limit=100`,
+    { signal },
   );
+  return data.products.map(normalize);
 };
 
-// Search products by title
+// Search products (ab server par search hoti hai)
 export const searchProducts = async (query, signal) => {
-  const products = await getAllProducts(signal);
-  const searchTerm = query.trim().toLowerCase();
+  const term = query.trim();
+  if (!term) return getAllProducts(signal);
 
-  if (!searchTerm) return products;
-
-  return products.filter((product) =>
-    product.title.toLowerCase().includes(searchTerm)
+  const data = await apiRequest(
+    `/products/search?q=${encodeURIComponent(term)}&limit=100`,
+    { signal },
   );
+  return data.products.map(normalize);
 };
 
-// Filter and sort products on the client
+// Filter and sort products on the client (pehle jaisa hi)
 export const filterProducts = (
   products,
-  { category = "all", query = "", sort = "default" } = {}
+  { category = "all", query = "", sort = "default" } = {},
 ) => {
   let result = [...products];
 
   if (category !== "all") {
-    result = result.filter(
-      (product) => product.category === category
-    );
+    result = result.filter((product) => product.category === category);
   }
 
   if (query.trim()) {
@@ -83,7 +132,7 @@ export const filterProducts = (
       (product) =>
         product.title.toLowerCase().includes(term) ||
         product.description.toLowerCase().includes(term) ||
-        product.category.toLowerCase().includes(term)
+        product.category.toLowerCase().includes(term),
     );
   }
 
@@ -97,9 +146,7 @@ export const filterProducts = (
       break;
 
     case "rating":
-      result.sort(
-        (a, b) => b.rating.rate - a.rating.rate
-      );
+      result.sort((a, b) => b.rating.rate - a.rating.rate);
       break;
 
     case "name":

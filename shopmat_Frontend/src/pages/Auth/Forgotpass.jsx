@@ -1,110 +1,169 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  requestPasswordReset,
+  verifyPasswordOtp,
+  resetPassword,
+} from "../../services/api";
+import { getErrorMessage } from "../../context/AuthContext";
+
+const RESEND_SECONDS = 60;
 
 export default function ForgotPassword() {
-  const [step, setStep] = useState(1); // 1 = Email, 2 = OTP, 3 = New Password
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
+  const [resetToken, setResetToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
+  const [cooldown, setCooldown] = useState(0);
 
   const navigate = useNavigate();
 
-  // ================= STEP 1: Send OTP =================
-  const handleSendOtp = (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
+  // Resend OTP timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
 
-    if (!email) {
-      setError("Please enter your email");
-      return;
-    }
-
-    setLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess("OTP sent to your email!");
-      setStep(2);
+    const timer = setTimeout(() => {
+      setCooldown((current) => current - 1);
     }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  // STEP 1: Send OTP
+  const sendOtp = async () => {
+    await requestPasswordReset(email.trim());
+    setCooldown(RESEND_SECONDS);
   };
 
-  // ================= STEP 2: Verify OTP =================
-  const handleVerifyOtp = (e) => {
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!otp || otp.length < 4) {
-      setError("Please enter valid OTP");
+    if (!email.trim()) {
+      setError("Please enter your email.");
       return;
     }
 
     setLoading(true);
 
-    // Dummy OTP check (real project mein backend se verify hoga)
-    // Abhi koi bhi 4+ digit OTP accept ho jayega
-    setTimeout(() => {
+    try {
+      await sendOtp();
+      setSuccess("If this email is registered, an OTP has been sent to it.");
+      setStep(2);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not send OTP."));
+    } finally {
       setLoading(false);
-
-      if (otp === "123456" || otp.length >= 4) {
-        setSuccess("OTP verified successfully!");
-        setStep(3);
-      } else {
-        setError("Invalid OTP. Try again.");
-      }
-    }, 800);
+    }
   };
 
-  // ================= STEP 3: Reset Password =================
-  const handleResetPassword = (e) => {
+  // Resend OTP
+  const handleResend = async () => {
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      await sendOtp();
+      setSuccess("A new OTP has been sent, if the email is registered.");
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not resend OTP."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // STEP 2: Verify OTP
+  const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!password || !confirmPassword) {
-      setError("Please fill both password fields");
+    if (!/^\d{6}$/.test(otp)) {
+      setError("Please enter a valid 6-digit OTP.");
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    setLoading(true);
+
+    try {
+      const res = await verifyPasswordOtp(email.trim(), otp);
+
+      if (!res?.resetToken) {
+        throw new Error("Reset token was not received from the server.");
+      }
+
+      setResetToken(res.resetToken);
+      setSuccess("OTP verified successfully!");
+      setStep(3);
+    } catch (err) {
+      setError(getErrorMessage(err, "Invalid OTP. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // STEP 3: Reset Password
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      setError("Password must contain at least one letter and one number.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (!resetToken) {
+      setError("Reset token is missing. Please verify your OTP again.");
       return;
     }
 
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess("Password changed successfully! Redirecting to login...");
-      
+    try {
+      await resetPassword(email.trim(), resetToken, password);
+
+      setSuccess("Password reset successfully! Redirecting to login...");
+
       setTimeout(() => {
         navigate("/login");
       }, 1500);
-    }, 1000);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not reset password."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-          
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Forgot Password</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Forgot Password
+            </h1>
+
             <p className="text-gray-500 mt-2 text-sm">
-              {step === 1 && "Enter your email to receive OTP"}
+              {step === 1 && "Enter your email to receive an OTP"}
               {step === 2 && "Enter the OTP sent to your email"}
               {step === 3 && "Create your new password"}
             </p>
@@ -123,6 +182,7 @@ export default function ForgotPassword() {
                 >
                   {s}
                 </div>
+
                 {s < 3 && (
                   <div
                     className={`w-10 h-1 mx-1 ${
@@ -134,27 +194,42 @@ export default function ForgotPassword() {
             ))}
           </div>
 
-          {/* Error / Success Message */}
+          {/* Error Message */}
           {error && (
-            <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div
+              role="alert"
+              className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
               {error}
             </div>
           )}
+
+          {/* Success Message */}
           {success && (
-            <div className="mb-5 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
+            <div
+              role="status"
+              className="mb-5 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600"
+            >
               {success}
             </div>
           )}
 
-          {/* ================= STEP 1: Email ================= */}
+          {/* STEP 1: Email */}
           {step === 1 && (
             <form onSubmit={handleSendOtp} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
                   Email Address
                 </label>
+
                 <input
+                  id="email"
                   type="email"
+                  autoComplete="email"
+                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
@@ -172,23 +247,35 @@ export default function ForgotPassword() {
             </form>
           )}
 
-          {/* ================= STEP 2: OTP ================= */}
+          {/* STEP 2: OTP */}
           {step === 2 && (
             <form onSubmit={handleVerifyOtp} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label
+                  htmlFor="otp"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
                   Enter OTP
                 </label>
+
                 <input
+                  id="otp"
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   placeholder="Enter 6-digit OTP"
                   maxLength={6}
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 tracking-widest text-center text-lg"
                 />
+
                 <p className="text-xs text-gray-400 mt-2">
-                  Demo: Enter any 4+ digits or <b>123456</b>
+                  OTP sent to <b>{email}</b>. Follow the validity period
+                  specified by your server.
                 </p>
               </div>
 
@@ -198,6 +285,19 @@ export default function ForgotPassword() {
                 className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
               >
                 {loading ? "Verifying..." : "Verify OTP"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={loading || cooldown > 0}
+                className="w-full text-sm font-medium text-blue-600 hover:underline disabled:text-gray-400 disabled:no-underline"
+              >
+                {cooldown > 0
+                  ? `Resend OTP in ${cooldown}s`
+                  : loading
+                    ? "Please wait..."
+                    : "Resend OTP"}
               </button>
 
               <button
@@ -215,31 +315,46 @@ export default function ForgotPassword() {
             </form>
           )}
 
-          {/* ================= STEP 3: New Password ================= */}
+          {/* STEP 3: New Password */}
           {step === 3 && (
             <form onSubmit={handleResetPassword} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
                   New Password
                 </label>
+
                 <input
+                  id="password"
                   type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="At least 8 characters, letter + number"
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
                   Confirm New Password
                 </label>
+
                 <input
+                  id="confirmPassword"
                   type="password"
+                  autoComplete="new-password"
+                  required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Re-enter your password"
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
@@ -257,7 +372,10 @@ export default function ForgotPassword() {
           {/* Back to Login */}
           <p className="text-center text-sm text-gray-600 mt-6">
             Remember your password?{" "}
-            <Link to="/login" className="font-semibold text-blue-600 hover:underline">
+            <Link
+              to="/login"
+              className="font-semibold text-blue-600 hover:underline"
+            >
               Login
             </Link>
           </p>

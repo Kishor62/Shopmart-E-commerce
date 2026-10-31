@@ -1,15 +1,19 @@
 import { NavLink } from "react-router-dom";
-import { Home, LayoutGrid, Heart, User } from "lucide-react";
+import { Home, LayoutGrid, Heart, User, LogIn } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
-const tabs = [
-  { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/categories", label: "Categories", icon: LayoutGrid },
-  { to: "/wishlist", label: "Wishlist", icon: Heart },
-  { to: "/profile", label: "Profile", icon: User },
-];
-
-// Sirf mobile par dikhta hai (md aur upar chhupa rehta hai)
 export default function BottomNav() {
+  const { user } = useAuth();
+
+  const tabs = [
+    { to: "/", label: "Home", icon: Home, end: true },
+    { to: "/categories", label: "Categories", icon: LayoutGrid },
+    { to: "/wishlist", label: "Wishlist", icon: Heart },
+    user
+      ? { to: "/profile", label: "Profile", icon: User }
+      : { to: "/login", label: "Login", icon: LogIn },
+  ];
+
   return (
     <nav
       aria-label="Main"
